@@ -1,0 +1,351 @@
+!------------------------------------------------------------------------
+! Begin exact copy of declaration section from driver (substitute allocatable, remove intent)
+!------------------------------------------------------------------------
+
+! IN only (as defined in WRF)
+
+  INTEGER                                 ::  ITIMESTEP ! timestep number
+  INTEGER                                 ::  YR        ! 4-digit year
+  REAL                                    ::  JULIAN_IN ! Julian day
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  COSZEN    ! cosine zenith angle
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  XLAT_URB2D! latitude [rad]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  DZ8W      ! thickness of atmo layers [m]
+  REAL                                    ::  DTBL      ! timestep [s]
+  REAL,    ALLOCATABLE, DIMENSION(:)      ::  DZS       ! thickness of soil layers [m]
+  INTEGER                                 ::  NSOIL     ! number of soil layers
+  INTEGER                                 ::  NUM_SOIL_LAYERS     ! number of soil layers
+  REAL                                    ::  DX        ! horizontal grid spacing [m]
+  INTEGER, ALLOCATABLE, DIMENSION(:,:)    ::  IVGTYP    ! vegetation type
+  INTEGER, ALLOCATABLE, DIMENSION(:,:)    ::  ISLTYP    ! soil type
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  VEGFRA    ! vegetation fraction []
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SHDMAX    ! annual max vegetation fraction []
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  TMN       ! deep soil temperature [K]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  XLAND     ! =2 ocean; =1 land/seaice
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  XICE      ! fraction of grid that is seaice
+  REAL                                    ::  XICE_THRESHOLD! fraction of grid determining seaice
+  INTEGER                                 ::  ISICE     ! land cover category for ice
+  INTEGER                                 ::  ISURBAN   ! land cover category for urban
+  INTEGER                                 ::  ISWATER   ! land cover category for water
+  INTEGER                                 ::  IDVEG     ! dynamic vegetation (1 -> off ; 2 -> on) with opt_crs = 1   
+  INTEGER                                 ::  IOPT_CRS  ! canopy stomatal resistance (1-> Ball-Berry; 2->Jarvis)
+  INTEGER                                 ::  IOPT_BTR  ! soil moisture factor for stomatal resistance (1-> Noah; 2-> CLM; 3-> SSiB)
+  INTEGER                                 ::  IOPT_RUN  ! runoff and groundwater (1->SIMGM; 2->SIMTOP; 3->Schaake96; 4->BATS)
+  INTEGER                                 ::  IOPT_SFC  ! surface layer drag coeff (CH & CM) (1->M-O; 2->Chen97)
+  INTEGER                                 ::  IOPT_FRZ  ! supercooled liquid water (1-> NY06; 2->Koren99)
+  INTEGER                                 ::  IOPT_INF  ! frozen soil permeability (1-> NY06; 2->Koren99)
+  INTEGER                                 ::  IOPT_RAD  ! radiation transfer (1->gap=F(3D,cosz); 2->gap=0; 3->gap=1-Fveg)
+  INTEGER                                 ::  IOPT_ALB  ! snow surface albedo (1->BATS; 2->CLASS)
+  INTEGER                                 ::  IOPT_SNF  ! rainfall & snowfall (1-Jordan91; 2->BATS; 3->Noah)
+  INTEGER                                 ::  IOPT_TBOT ! lower boundary of soil temperature (1->zero-flux; 2->Noah)
+  INTEGER                                 ::  IOPT_STC  ! snow/soil temperature time scheme
+  INTEGER                                 ::  IZ0TLND   ! option of Chen adjustment of Czil (not used)
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  T_PHY     ! 3D atmospheric temperature valid at mid-levels [K]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  QV_CURR   ! 3D water vapor mixing ratio [kg/kg_dry]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  U_PHY     ! 3D U wind component [m/s]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  V_PHY     ! 3D V wind component [m/s]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SWDOWN    ! solar down at surface [W m-2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  GLW       ! longwave down at surface [W m-2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  P8W       ! 3D pressure, valid at interface [Pa]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  RAINBL, RAINBL_tmp    ! precipitation entering land model [mm]
+
+! INOUT (with generic LSM equivalent) (as defined in WRF)
+
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  TSK       ! surface radiative temperature [K]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  HFX       ! sensible heat flux [W m-2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  QFX       ! latent heat flux [kg s-1 m-2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  LH        ! latent heat flux [W m-2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  GRDFLX    ! ground/snow heat flux [W m-2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SMSTAV    ! soil moisture avail. [not used]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SMSTOT    ! total soil water [mm][not used]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SFCRUNOFF ! accumulated surface runoff [m]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  UDRUNOFF  ! accumulated sub-surface runoff [m]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ALBEDO    ! total grid albedo []
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SNOWC     ! snow cover fraction []
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SMOISEQ   ! volumetric soil moisture [m3/m3]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SMOIS     ! volumetric soil moisture [m3/m3]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SH2O      ! volumetric liquid soil moisture [m3/m3]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  TSLB      ! soil temperature [K]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SNOW      ! snow water equivalent [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SNOWH     ! physical snow depth [m]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CANWAT    ! total canopy water + ice [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ACSNOM    ! accumulated snow melt leaving pack
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ACSNOW    ! accumulated snow on grid
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  EMISS     ! surface bulk emissivity
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  QSFC      ! bulk surface specific humidity
+
+! INOUT (with no Noah LSM equivalent) (as defined in WRF)
+
+  INTEGER, ALLOCATABLE, DIMENSION(:,:)    ::  ISNOWXY   ! actual no. of snow layers
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  TVXY      ! vegetation leaf temperature
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  TGXY      ! bulk ground surface temperature
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CANICEXY  ! canopy-intercepted ice (mm)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CANLIQXY  ! canopy-intercepted liquid water (mm)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  EAHXY     ! canopy air vapor pressure (pa)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  TAHXY     ! canopy air temperature (k)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CMXY      ! bulk momentum drag coefficient
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CHXY      ! bulk sensible heat exchange coefficient
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  FWETXY    ! wetted or snowed fraction of the canopy (-)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SNEQVOXY  ! snow mass at last time step(mm h2o)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ALBOLDXY  ! snow albedo at last time step (-)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  QSNOWXY   ! snowfall on the ground [mm/s]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  WSLAKEXY  ! lake water storage [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ZWTXY     ! water table depth [m]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  WAXY      ! water in the "aquifer" [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  WTXY      ! groundwater storage [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SMCWTDXY  ! groundwater storage [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  DEEPRECHXY! groundwater storage [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  RECHXY    ! groundwater storage [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  TSNOXY    ! snow temperature [K]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  ZSNSOXY   ! snow layer depth [m]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SNICEXY   ! snow layer ice [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:,:)  ::  SNLIQXY   ! snow layer liquid water [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  LFMASSXY  ! leaf mass [g/m2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  RTMASSXY  ! mass of fine roots [g/m2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  STMASSXY  ! stem mass [g/m2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  WOODXY    ! mass of wood (incl. woody roots) [g/m2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  STBLCPXY  ! stable carbon in deep soil [g/m2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  FASTCPXY  ! short-lived carbon, shallow soil [g/m2]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  LAI       ! leaf area index
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  LAI_tmp       ! leaf area index
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  XSAIXY    ! stem area index
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  TAUSSXY   ! snow age factor
+
+! OUT (with no Noah LSM equivalent) (as defined in WRF)
+   
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  T2MVXY    ! 2m temperature of vegetation part
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  T2MBXY    ! 2m temperature of bare ground part
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  Q2MVXY    ! 2m mixing ratio of vegetation part
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  Q2MBXY    ! 2m mixing ratio of bare ground part
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  TRADXY    ! surface radiative temperature (k)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  NEEXY     ! net ecosys exchange (g/m2/s CO2)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  GPPXY     ! gross primary assimilation [g/m2/s C]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  NPPXY     ! net primary productivity [g/m2/s C]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  FVEGXY    ! Noah-MP vegetation fraction [-]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  RUNSFXY   ! surface runoff [mm/s]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  RUNSBXY   ! subsurface runoff [mm/s]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ECANXY    ! evaporation of intercepted water (mm/s)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  EDIRXY    ! soil surface evaporation rate (mm/s]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ETRANXY   ! transpiration rate (mm/s)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  FSAXY     ! total absorbed solar radiation (w/m2)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  FIRAXY    ! total net longwave rad (w/m2) [+ to atm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  APARXY    ! photosyn active energy by canopy (w/m2)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  PSNXY     ! total photosynthesis (umol co2/m2/s) [+]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SAVXY     ! solar rad absorbed by veg. (w/m2)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SAGXY     ! solar rad absorbed by ground (w/m2)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  RSSUNXY   ! sunlit leaf stomatal resistance (s/m)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  RSSHAXY   ! shaded leaf stomatal resistance (s/m)
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  BGAPXY    ! between gap fraction
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  WGAPXY    ! within gap fraction
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  TGVXY     ! under canopy ground temperature[K]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  TGBXY     ! bare ground temperature [K]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CHVXY     ! sensible heat exchange coefficient vegetated
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CHBXY     ! sensible heat exchange coefficient bare-ground
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SHGXY     ! veg ground sen. heat [w/m2]   [+ to atm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SHCXY     ! canopy sen. heat [w/m2]   [+ to atm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SHBXY     ! bare sensible heat [w/m2]  [+ to atm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  EVGXY     ! veg ground evap. heat [w/m2]  [+ to atm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  EVBXY     ! bare soil evaporation [w/m2]  [+ to atm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  GHVXY     ! veg ground heat flux [w/m2]  [+ to soil]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  GHBXY     ! bare ground heat flux [w/m2] [+ to soil]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  IRGXY     ! veg ground net LW rad. [w/m2] [+ to atm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  IRCXY     ! canopy net LW rad. [w/m2] [+ to atm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  IRBXY     ! bare net longwave rad. [w/m2] [+ to atm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  TRXY      ! transpiration [w/m2]  [+ to atm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  EVCXY     ! canopy evaporation heat [w/m2]  [+ to atm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CHLEAFXY  ! leaf exchange coefficient 
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CHUCXY    ! under canopy exchange coefficient 
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CHV2XY    ! veg 2m exchange coefficient 
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CHB2XY    ! bare 2m exchange coefficient 
+  INTEGER   ::  ids,ide, jds,jde, kds,kde,  &  ! d -> domain
+   &         ims,ime, jms,jme, kms,kme,  &  ! m -> memory
+   &         its,ite, jts,jte, kts,kte   ! t -> tile
+
+#ifdef WRF_HYDRO
+! INOUT (new accumulator variables for output water balance) 
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ACCPRCP ! accumulated precip [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ACCECAN  ! accumulated canopy evap [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ACCETRAN ! accumulated transpiration [mm]
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  ACCEDIR ! accumulated direct soil evap [mm]
+#endif
+
+!    REAL, ALLOCATABLE, DIMENSION(:)     :: SLDPTH       ! depth to soil interfaces [m]
+
+!------------------------------------------------------------------------
+! Needed for NoahMP init
+!------------------------------------------------------------------------
+
+  LOGICAL                                 ::  FNDSOILW    ! soil water present in input
+  LOGICAL                                 ::  FNDSNOWH    ! snow depth present in input
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  CHSTARXY    ! for consistency with MP_init; delete later
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  SEAICE      ! seaice fraction
+
+!------------------------------------------------------------------------
+! Needed for MMF_RUNOFF (IOPT_RUN = 5); not part of MP driver in WRF
+!------------------------------------------------------------------------
+
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  MSFTX
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  MSFTY
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  EQZWT
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  RIVERBEDXY
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  RIVERCONDXY
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  PEXPXY
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  FDEPTHXY
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  AREAXY
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  QRFSXY
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  QSPRINGSXY
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  QRFXY
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  QSPRINGXY
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  QSLATXY
+  REAL                                    ::  WTDDT  = 30.0    ! frequency of groundwater call [minutes]
+  INTEGER                                 ::  STEPWTD          ! step of groundwater call
+
+!------------------------------------------------------------------------
+! 2D variables not used in WRF - should be removed?
+!------------------------------------------------------------------------
+
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  XLONIN      ! longitude
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  TERRAIN     ! terrain height
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  GVFMIN      ! annual minimum in vegetation fraction
+  REAL,    ALLOCATABLE, DIMENSION(:,:)    ::  GVFMAX      ! annual maximum in vegetation fraction
+
+!------------------------------------------------------------------------
+! End 2D variables not used in WRF
+!------------------------------------------------------------------------
+
+  CHARACTER(LEN=256) :: MMINSL  = 'STAS'  ! soil classification
+  CHARACTER(LEN=256) :: LLANDUSE          ! (=USGS, using USGS landuse classification)
+
+!------------------------------------------------------------------------
+! Timing:
+!------------------------------------------------------------------------
+
+  INTEGER :: NTIME          ! timesteps
+  integer :: clock_count_1 = 0
+  integer :: clock_count_2 = 0
+  integer :: clock_rate    = 0
+  real    :: timing_sum    = 0.0
+
+  integer :: sflx_count_sum
+  integer :: count_before_sflx
+  integer :: count_after_sflx
+
+!---------------------------------------------------------------------
+!  DECLARE/Initialize constants
+!---------------------------------------------------------------------
+
+    INTEGER                             :: I
+    INTEGER                             :: J, K
+    INTEGER                             :: SLOPETYP
+    INTEGER                             :: YEARLEN
+
+    INTEGER, PARAMETER                  :: NSNOW = 3    ! number of snow layers fixed to 3
+    !yw REAL, PARAMETER                     :: undefined_value = -1.E36
+    REAL, PARAMETER                     :: undefined_value = 0.0
+
+!---------------------------------------------------------------------
+!  File naming, parallel
+!---------------------------------------------------------------------
+
+  character(len=19)  :: olddate, newdate, startdate
+  character(len=19)  ::  tmpdate
+  character          :: hgrid
+  integer            :: igrid
+  logical            :: lexist
+  integer            :: imode
+  integer            :: ixfull
+  integer            :: jxfull
+  integer            :: ixpar
+  integer            :: jxpar
+  integer            :: xstartpar
+  integer            :: ystartpar
+  integer            :: rank = 0
+  CHARACTER(len=256) :: inflnm, outflnm, inflnm_template
+  logical            :: restart_flag
+  character(len=256) :: restart_flnm
+  integer            :: ierr
+
+!---------------------------------------------------------------------
+! Attributes from LDASIN input file (or HRLDAS_CONSTANTS_FILE, as the case may be)
+!---------------------------------------------------------------------
+
+  INTEGER           :: IX
+  INTEGER           :: JX
+  REAL              :: DY
+  REAL              :: TRUELAT1
+  REAL              :: TRUELAT2
+  REAL              :: CEN_LON
+  INTEGER           :: MAPPROJ
+  REAL              :: LAT1
+  REAL              :: LON1
+
+#ifdef MPP_LAND
+  integer ix_tmp, jx_tmp
+#endif
+
+!---------------------------------------------------------------------
+!  NAMELIST start
+!---------------------------------------------------------------------
+
+  character(len=256) :: indir
+  ! nsoil defined above
+  integer            :: forcing_timestep
+  integer            :: noah_timestep
+  integer            :: start_year
+  integer            :: start_month
+  integer            :: start_day
+  integer            :: start_hour
+  integer            :: start_min
+  character(len=256) :: outdir = "."
+  character(len=256) :: restart_filename_requested = " "
+  integer            :: restart_frequency_hours
+  integer            :: output_timestep
+
+  integer            :: dynamic_veg_option
+  integer            :: canopy_stomatal_resistance_option
+  integer            :: btr_option
+  integer            :: runoff_option
+  integer            :: surface_drag_option
+  integer            :: supercooled_water_option
+  integer            :: frozen_soil_option
+  integer            :: radiative_transfer_option
+  integer            :: snow_albedo_option
+  integer            :: pcp_partition_option
+  integer            :: tbot_option
+  integer            :: temp_time_scheme_option
+
+  integer            :: split_output_count = 1
+  integer            :: khour
+  integer            :: kday
+  real               :: zlvl 
+  character(len=256) :: hrldas_constants_file = " "
+  character(len=256) :: mmf_runoff_file = " "
+  character(len=256) :: external_fpar_filename_template = " "
+  character(len=256) :: external_lai_filename_template = " "
+  integer            :: xstart = 1
+  integer            :: ystart = 1
+  integer            ::   xend = 0
+  integer            ::   yend = 0
+  integer, PARAMETER    :: MAX_SOIL_LEVELS = 10   ! maximum soil levels in namelist
+  REAL, DIMENSION(MAX_SOIL_LEVELS) :: soil_thick_input       ! depth to soil interfaces from namelist [m]
+
+  namelist / NOAHLSM_OFFLINE /    &
+#ifdef WRF_HYDRO
+       finemesh,finemesh_factor,forc_typ, snow_assim , GEO_STATIC_FLNM, HRLDAS_ini_typ, &
+#endif
+       indir, nsoil, soil_thick_input, forcing_timestep, noah_timestep, &
+       start_year, start_month, start_day, start_hour, start_min, &
+       outdir, &
+       restart_filename_requested, restart_frequency_hours, output_timestep, &
+
+       dynamic_veg_option, canopy_stomatal_resistance_option, &
+       btr_option, runoff_option, surface_drag_option, supercooled_water_option, &
+       frozen_soil_option, radiative_transfer_option, snow_albedo_option, &
+       pcp_partition_option, tbot_option, temp_time_scheme_option, &
+
+       split_output_count, & 
+       khour, kday, zlvl, hrldas_constants_file, mmf_runoff_file, &
+       external_fpar_filename_template, external_lai_filename_template, &
+       xstart, xend, ystart, yend
+
+  ! Initialize namelist variables to dummy values, so we can tell
+  ! if they have not been set properly.
