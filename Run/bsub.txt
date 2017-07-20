@@ -1,0 +1,13 @@
+#!/bin/tcsh
+#BSUB -P UDKE0009                       # project number
+#BSUB -u yu.zhang4@duke.edu              # email address
+#BSUB -J Yu_test                       # job name
+#BSUB -q regular                        # queue
+#BSUB -W 4:00                          # wallclock time
+#BSUB -o wrf_hydro%J.out                # output filename (%J to add job id)
+#BSUB -e wrf_hydro%J.err                # error filename
+#BSUB -n 1                              # number of total (MPI) tasks
+#BSUB -R "span[ptile=1]"               # run a max of 32 tasks per node
+
+cd /glade/p/work/taotang/WRF/WRFV3/hydro/Run/
+./wrf_hydro.exe
