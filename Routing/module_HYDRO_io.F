@@ -5211,7 +5211,7 @@ end subroutine mpp_output_chrt
 
       end if   !end if for NLAKES >0 check
 
-       cnt = 0 
+     cnt = 0 
 
       
      BwG = 0.0

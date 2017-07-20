@@ -8356,7 +8356,7 @@ contains
       FFF   = 6.0
       RSBMX = 5.0
 
-      QDIS = (1.0-FCRMAX)*RSBMX*EXP(-TIMEAN)*EXP(-FFF*(ZWT-2.0))
+ QDIS = (1.0-FCRMAX)*RSBMX*EXP(-TIMEAN)*EXP(-FFF*(ZWT-2.0))
 
 ! Matric potential at the layer above the water table
 
@@ -8376,8 +8376,7 @@ contains
      
 ! Water storage in the aquifer + saturated soil
 
-      WT  = WT + (QIN - QDIS) * DT     !(mm)
-
+	  WT  = WT + (QIN) * DT     !(mm)
       IF(IWT.EQ.NSOIL) THEN
          WA          = WA + (QIN - QDIS) * DT     !(mm)
          WT          = WA
@@ -8442,6 +8441,192 @@ contains
       END DO
 
   END SUBROUTINE GROUNDWATER
+  
+  SUBROUTINE GROUNDWATER_new(NSNOW  ,NSOIL  ,DT     ,SICE   ,ZSOIL  , & !in
+                         STC    ,WCND   ,FCRMAX ,ILOC   ,JLOC   , & !in
+                         SH2O   ,ZWT    ,WA     ,WT     ,         & !inout
+                         QIN    ,QDIS   )                           !out
+! ----------------------------------------------------------------------
+  IMPLICIT NONE
+! ----------------------------------------------------------------------
+! input
+  INTEGER,                         INTENT(IN) :: ILOC  !grid index
+  INTEGER,                         INTENT(IN) :: JLOC  !grid index
+  INTEGER,                         INTENT(IN) :: NSNOW !maximum no. of snow layers
+  INTEGER,                         INTENT(IN) :: NSOIL !no. of soil layers
+  REAL,                            INTENT(IN) :: DT    !timestep [sec]
+  REAL,                            INTENT(IN) :: FCRMAX!maximum FCR (-)
+  REAL, DIMENSION(       1:NSOIL), INTENT(IN) :: SICE  !soil ice content [m3/m3]
+  REAL, DIMENSION(       1:NSOIL), INTENT(IN) :: ZSOIL !depth of soil layer-bottom [m]
+  REAL, DIMENSION(       1:NSOIL), INTENT(IN) :: WCND  !hydraulic conductivity (m/s)
+  REAL, DIMENSION(-NSNOW+1:NSOIL), INTENT(IN) :: STC   !snow/soil temperature (k)
+
+! input and output
+  REAL, DIMENSION(    1:NSOIL), INTENT(INOUT) :: SH2O  !liquid soil water [m3/m3]
+  REAL,                         INTENT(INOUT) :: ZWT   !the depth to water table [m]
+  REAL,                         INTENT(INOUT) :: WA    !water storage in aquifer [mm]
+  REAL,                         INTENT(INOUT) :: WT    !water storage in aquifer 
+                                                           !+ saturated soil [mm]
+! output
+  REAL,                           INTENT(OUT) :: QIN   !groundwater recharge [mm/s]
+  REAL,                           INTENT(OUT) :: QDIS  !groundwater discharge [mm/s]
+
+! local
+  REAL                                        :: FFF   !runoff decay factor (m-1)
+  REAL                                        :: RSBMX !baseflow coefficient [mm/s]
+  INTEGER                                     :: IZ    !do-loop index
+  INTEGER                                     :: IWT   !layer index above water table layer
+  REAL,  DIMENSION(    1:NSOIL)               :: DZMM  !layer thickness [mm]
+  REAL,  DIMENSION(    1:NSOIL)               :: ZNODE !node depth [m]
+  REAL,  DIMENSION(    1:NSOIL)               :: MLIQ  !liquid water mass [kg/m2 or mm]
+  REAL,  DIMENSION(    1:NSOIL)               :: EPORE !effective porosity [-]
+  REAL,  DIMENSION(    1:NSOIL)               :: HK    !hydraulic conductivity [mm/s]
+  REAL,  DIMENSION(    1:NSOIL)               :: SMC   !total soil water  content [m3/m3]
+  REAL(KIND=8)                                :: S_NODE!degree of saturation of IWT layer
+  REAL                                        :: DZSUM !cumulative depth above water table [m]
+  REAL                                        :: SMPFZ !matric potential (frozen effects) [mm]
+  REAL                                        :: KA    !aquifer hydraulic conductivity [mm/s]
+  REAL                                        :: WH_ZWT!water head at water table [mm]
+  REAL                                        :: WH    !water head at layer above ZWT [mm]
+  REAL                                        :: WS    !water used to fill air pore [mm]
+  REAL                                        :: WTSUB !sum of HK*DZMM
+  REAL                                        :: WATMIN!minimum soil vol soil moisture [m3/m3]
+  REAL                                        :: XS    !excessive water above saturation [mm]
+  REAL, PARAMETER                             :: ROUS = 0.2    !specific yield [-]
+  REAL, PARAMETER                             :: CMIC = 0.20   !microprore content (0.0-1.0)
+                                                               !0.0-close to free drainage
+! -------------------------------------------------------------
+      QDIS      = 0.0
+      QIN       = 0.0
+
+! Derive layer-bottom depth in [mm]
+!KWM:  Derive layer thickness in mm
+
+      DZMM(1) = -ZSOIL(1)*1.E3
+      DO IZ = 2, NSOIL
+         DZMM(IZ)  = 1.E3 * (ZSOIL(IZ - 1) - ZSOIL(IZ))
+      ENDDO
+
+! Derive node (middle) depth in [m]
+!KWM:  Positive number, depth below ground surface in m
+      ZNODE(1) = -ZSOIL(1) / 2.
+      DO IZ = 2, NSOIL
+         ZNODE(IZ)  = -ZSOIL(IZ-1) + 0.5 * (ZSOIL(IZ-1) - ZSOIL(IZ))
+      ENDDO
+
+! Convert volumetric soil moisture "sh2o" to mass
+
+      DO IZ = 1, NSOIL
+         SMC(IZ)      = SH2O(IZ) + SICE(IZ)
+         MLIQ(IZ)     = SH2O(IZ) * DZMM(IZ)
+         EPORE(IZ)    = MAX(0.01,SMCMAX - SICE(IZ))
+         HK(IZ)       = 1.E3*WCND(IZ)
+      ENDDO
+
+! The layer index of the first unsaturated layer,
+! i.e., the layer right above the water table
+
+      IWT = NSOIL
+      DO IZ = 2,NSOIL
+         IF(ZWT   .LE. -ZSOIL(IZ) ) THEN
+            IWT = IZ-1
+            EXIT
+         END IF
+      ENDDO
+
+! Groundwater discharge [mm/s]
+
+ ! YZ     FFF   = 6.0
+ ! YZ     RSBMX = 5.0
+
+ ! YZ     QDIS = (1.0-FCRMAX)*RSBMX*EXP(-TIMEAN)*EXP(-FFF*(ZWT-2.0))
+ !YZ
+		QDIS = 0
+
+! Matric potential at the layer above the water table
+
+      S_NODE = MIN(1.0,SMC(IWT)/SMCMAX )
+      S_NODE = MAX(S_NODE,REAL(0.01,KIND=8))
+      SMPFZ  = -PSISAT*1000.*S_NODE**(-BEXP)   ! m --> mm
+      SMPFZ  = MAX(-120000.0,CMIC*SMPFZ)   
+
+! Recharge rate qin to groundwater
+
+      KA  = HK(IWT)
+
+      WH_ZWT  = - ZWT * 1.E3                          !(mm)
+      WH      = SMPFZ  - ZNODE(IWT)*1.E3              !(mm)
+      QIN     = - KA * (WH_ZWT-WH)  /((ZWT-ZNODE(IWT))*1.E3)
+      QIN     = MAX(-10.0/DT,MIN(10./DT,QIN))
+     
+! Water storage in the aquifer + saturated soil
+
+      WT  = WT + (QIN - QDIS) * DT     !(mm)
+	  
+      IF(IWT.EQ.NSOIL) THEN
+         WA          = WA + (QIN - QDIS) * DT     !(mm)
+         WT          = WA
+         ZWT         = (-ZSOIL(NSOIL) + 25.) - WA/1000./ROUS      !(m)
+         MLIQ(NSOIL) = MLIQ(NSOIL) - QIN * DT        ! [mm]
+
+         MLIQ(NSOIL) = MLIQ(NSOIL) + MAX(0.,(WA - 5000.))
+         WA          = MIN(WA, 5000.)
+      ELSE
+         
+         IF (IWT.EQ.NSOIL-1) THEN
+            ZWT = -ZSOIL(NSOIL)                   &
+                 - (WT-ROUS*1000*25.) / (EPORE(NSOIL))/1000.
+         ELSE
+            WS = 0.   ! water used to fill soil air pores
+            DO IZ = IWT+2,NSOIL
+               WS = WS + EPORE(IZ) * DZMM(IZ)
+            ENDDO
+            ZWT = -ZSOIL(IWT+1)                  &
+                  - (WT-ROUS*1000.*25.-WS) /(EPORE(IWT+1))/1000.
+         ENDIF
+
+         WTSUB = 0.
+         DO IZ = 1, NSOIL
+           WTSUB = WTSUB + HK(IZ)*DZMM(IZ)
+         END DO
+
+         DO IZ = 1, NSOIL           ! Removing subsurface runoff
+         MLIQ(IZ) = MLIQ(IZ) - QDIS*DT*HK(IZ)*DZMM(IZ)/WTSUB
+         END DO
+      END IF
+
+      ZWT = MAX(1.5,ZWT)
+
+!
+! Limit MLIQ to be greater than or equal to watmin.
+! Get water needed to bring MLIQ equal WATMIN from lower layer.
+!
+      WATMIN = 0.01
+      DO IZ = 1, NSOIL-1
+          IF (MLIQ(IZ) .LT. 0.) THEN
+             XS = WATMIN-MLIQ(IZ)
+          ELSE
+             XS = 0.
+          END IF
+          MLIQ(IZ  ) = MLIQ(IZ  ) + XS
+          MLIQ(IZ+1) = MLIQ(IZ+1) - XS
+      END DO
+
+        IZ = NSOIL
+        IF (MLIQ(IZ) .LT. WATMIN) THEN
+           XS = WATMIN-MLIQ(IZ)
+        ELSE
+           XS = 0.
+        END IF
+        MLIQ(IZ) = MLIQ(IZ) + XS
+        WA       = WA - XS
+        WT       = WT - XS
+
+      DO IZ = 1, NSOIL
+        SH2O(IZ)     = MLIQ(IZ) / DZMM(IZ)
+      END DO
+
+  END SUBROUTINE GROUNDWATER_new
 ! ==================================================================================================
 ! ----------------------------------------------------------------------
   SUBROUTINE SHALLOWWATERTABLE (NSNOW  ,NSOIL  ,ZSOIL, DT    , & !in

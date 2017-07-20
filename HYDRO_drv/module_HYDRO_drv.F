@@ -525,8 +525,15 @@ module module_HYDRO_drv
 			gw2d(did)%ebot, gw2d(did)%eocn, gw2d(did)%dt, &
 			gw2d(did)%istep)
            
-           
-	  gw2d(did)%ho = gw2d(did)%h
+      gw2d(did)%ho = gw2d(did)%h
+	 
+	 !YZ add the lateral groundwater flow function 05/10/2017----------------
+	  call gwLateral(gw2d(did)%ix, gw2d(did)%jx, gw2d(did)%dx, &
+			gw2d(did)%elev, gw2d(did)%bot, &
+			gw2d(did)%hycond, gw2d(did)%poros, &
+			gw2d(did)%ho, gw2d(did)%h, gw2d(did)%dt, &
+			gw2d(did)%istep)     
+	  
  
           
           

@@ -152,7 +152,79 @@ module module_gw_gw2d
       allocate(gw2d(did)%qdarcyRT (ix,jx))
 
     end subroutine gw2d_allocate
+	
+	subroutine gwLateral(ix, jx, dx, &
+			elev, bot, hycond, poros, &
+			ho, h, dt, istep)
+		
+		integer, intent(in) :: ix, jx
 
+		real,    intent(in), dimension(ix,jx) ::  &
+        elev,           &  ! elev/bathymetry of sfc rel to sl (m) (supp)
+        bot,            &  ! elev. aquifer bottom rel to sl (m)   (supp)
+        hycond,         &  ! hydraulic conductivity (m/s per m/m) (supp)
+        poros,          &  ! porosity (m3/m3)                     (supp)
+        ho                 ! head at start of timestep (m)        (supp)
+
+		real,    intent(inout), dimension(ix,jx) ::  &
+        h ! head, after ghmcompute (m)           (ret)
+
+		integer ::  istep !, dt
+		real, intent(in) :: dt, dx
+
+		! #endif      
+		!       eocn  = mean spurious sink for h_ocn = sealev fix (m/s)(ret)
+		!               This equals the total ground-water flow across 
+		!               land->ocean boundaries.
+		!       ebot  = mean spurious source for "bot" fix (m/s) (returned)
+		!       time  = elapsed time from start of run (sec)
+		!       dt = timestep length (sec)
+		!       istep = timestep counter
+
+		! Local arrays:
+
+		real, dimension(ix,jx)   :: gw_lateral    ! storage coefficient (m3 of h2o / bulk m3)
+		real, dimension(ix,jx,2) ::   t    ! transmissivity (m2/s)..1 for N-S,..2 for E-W	
+		integer            :: its, ite, jts, jte, ifs, ife, jfs, jfe, &
+                            xdim, ydim, fxdim, fydim, i, j
+		real			::cross_area
+		
+		its = 1
+		ite = ix
+		jts = 1
+		jte = jx
+		gw_lateral = 0;
+		do i=its,ite
+			do j=jts,jte
+				!left direction
+				if (j-1 .GE.jts) then
+					cross_area = ho(i,j)*dx
+					gw_lateral(i,j) = gw_lateral(i,j) + &
+					cross_area*hycond(i,j)*(ho(i,j)+bot(i,j)-ho(i,j-1)+bot(i,j-1))/dx/poros(i,j)
+				endif
+				!right direction
+				if (j+1 .LE.jte) then
+					cross_area = ho(i,j)*dx
+					gw_lateral(i,j) = gw_lateral(i,j) + &
+					cross_area*hycond(i,j)*(ho(i,j)+bot(i,j)-ho(i,j+1)+bot(i,j+1))/dx/poros(i,j)
+				endif
+				
+				!up direction
+				if (i-1 .GE.its) then
+					cross_area = ho(i,j)*dx
+					gw_lateral(i,j) = gw_lateral(i,j) + &
+					cross_area*hycond(i,j)*(ho(i,j)+bot(i,j)-ho(i-1,j)+bot(i-1,j))/dx/poros(i,j)
+				endif
+				!down direction
+				if (i+1 .LE.ite) then
+					cross_area = ho(i,j)*dx
+					gw_lateral(i,j) = gw_lateral(i,j) + &
+					cross_area*hycond(i,j)*(ho(i,j)+bot(i,j)-ho(i+1,j)+bot(i+1,j))/dx/poros(i,j)
+				endif
+			enddo
+		enddo
+		h = ho - gw_lateral*dt/(dx*dx)
+	end subroutine gwLateral
 
     subroutine gwstep(ix, jx, dx,              &
 		      ltype, elev, bot,        &

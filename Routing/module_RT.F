@@ -702,15 +702,25 @@ CONTAINS
   ! BF gw2d model
       elseif (nlst_rt(did)%GWBASESWCRT.GE.3) THEN
 
-        call readGW2d(gw2d(did)%ix, gw2d(did)%jx,     &
-                      gw2d(did)%hycond, gw2d(did)%ho, &
-		      gw2d(did)%bot, gw2d(did)%poros, &
-		      gw2d(did)%ltype, nlst_rt(did)%gwIhShift)
+        ! call readGW2d(gw2d(did)%ix, gw2d(did)%jx,     &
+                      ! gw2d(did)%hycond, gw2d(did)%ho, &
+		      ! gw2d(did)%bot, gw2d(did)%poros, &
+		      ! gw2d(did)%ltype, nlst_rt(did)%gwIhShift)
 
         gw2d(did)%elev = rt_domain(did)%elrt
-
-    End if
-    
+		gw2d(did)%bot = rt_domain(did)%elrt-1;
+		gw2d(did)%hycond = 0.0000347
+		gw2d(did)%ho = 0.5
+		gw2d(did)%poros = 0.4
+		gw2d(did)%ltype = 1
+		nlst_rt(did)%gwIhShift = 0
+		!YZ. Read in porosity, hydraulic conductivity, bottom elevation, land types, and initial head from the input file...
+		 ! OPEN(81, FILE='GW2dPARM.TBL',FORM='FORMATTED',STATUS='OLD')
+		 
+		 ! read(81,813) gw2d(did)%hycond, gw2d(did)%ho, gw2d(did)%poros, gw2d(did)%ltype, nlst_rt(did)%gwIhShift
+	! 813   FORMAT(F6.7,A1,F6.4,A1,F6.4,A1,I3,A1,F6.4)
+		 ! close(81)
+      End if    
   END IF
 !---------------------------------------------------------------------
 !DJG  End if GW/Baseflow activated...

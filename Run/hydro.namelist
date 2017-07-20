@@ -9,13 +9,14 @@
 
 !!!! MODEL INPUT DATA FILES !!!
 !Specify land surface model gridded static input data file...(e.g.: "geo_em.d03.nc")
- GEO_STATIC_FLNM = "./DOMAIN/geo_em.d01.nc.conus_1km"
+ GEO_STATIC_FLNM = "./DOMAIN/geo_em.d01.nc"
 
 !Specify the static high-resolution routing terrain input data file...(e.g.: "Fulldom_hires_hydrofile.nc")
- GEO_FINEGRID_FLNM = "./DOMAIN/Fulldom_hires_netcdf_file_nhd_mask.nc"
+ GEO_FINEGRID_FLNM = "./DOMAIN/Fulldom_hires_netcdf_file.nc"
 
 !Specify the name of the restart file if starting from restart...comment out with '!' if not...
-!RESTART_FILE  = 'HYDRO_RST.2013-09-11_02:00_DOMAIN3'
+
+!RESTART_FILE  = './HYDRO_RST.1987-12-11_00:00_DOMAIN1'
 
 
 
@@ -25,11 +26,11 @@
  IGRID = 1
 
 !Specify the restart file write frequency...(minutes, value of -99999 provides monthly restart files)
-!rst_dt = -99999
- rst_dt = 360   
+rst_dt = 43200
+!rst_dt = 1440
 
 !Specify the output file write frequency...(minutes)
- out_dt = 60 ! minutes
+ out_dt = 1440 ! minutes
 
 !Specify the number of output times to be contained within each output history file...(integer)
 !   SET = 1 WHEN RUNNING CHANNEL ROUTING ONLY/CALIBRATION SIMS!!!
@@ -37,21 +38,21 @@
  SPLIT_OUTPUT_COUNT = 1
 
 !Switch to overwrite the restart or initialization of soil variables with values from the routing restart file (=0-no reset, 1-yes reset using routing restart)
- rst_typ = 1
+ rst_typ = 0
 
 !Switch to set restart accumulation variables = 0 (0-no reset, 1-yes reset to 0.0)
  RSTRT_SWC = 0
 
 !Switches to specify if routing restart files are to be read in/output in a flat binary format (=0 no, 1-yes read/write in binary format)
- rst_bi_in = 1   ! read restart in binary format
- rst_bi_out = 1  ! output restart in binary format
+ rst_bi_in = 0   ! read restart in binary format
+ rst_bi_out = 0  ! output restart in binary format
 
 !Routing output netcdf file control...(=0 no files written, =1 files are written)
- CHRTOUT_DOMAIN = 1           ! Netcdf and ASCII point timeseries output at all channel points and at user-define points (frxst_pts)
+ CHRTOUT_DOMAIN = 1           ! Netcdf point timeseries output at all channel points
  CHRTOUT_GRID = 1             ! Netcdf grid of channel streamflow values
- LSMOUT_DOMAN = 0             ! Netcdf grid of variables passed between LSM and routing components
+ LSMOUT_DOMAN = 1             ! Netcdf grid of variables passed between LSM and routing components
  RTOUT_DOMAIN = 1             ! Netcdf grid of terrain routing variables on routing grid
- output_gw = 0                ! Netcdf grid of groundwater-baseflow bucket information
+ output_gw = 1                ! Netcdf grid of groundwater-baseflow bucket information
  outlake  = 0                 ! Netcdf point timeseries output of lake information
 
 !Specify the minimum stream order to output to netcdf point file...(integer)
@@ -68,11 +69,11 @@
  TERADJ_SOLAR = 0
 
 !Specify the grid spacing of the terrain routing grid...(meters)
- DXRT = 250
+ DXRT = 100
 !Specify the integer multiple between the land model grid and the terrain routing grid...(integer)
- AGGFACTRT = 4
+ AGGFACTRT = 10
 !Specify the routing model timestep...(seconds)
- DTRT = 4
+ DTRT = 60
 
 
 !Switch activate saturated subsurface routing...(0=no, 1=yes)
@@ -98,5 +99,5 @@
 !Specify baseflow/bucket model initialization...(0=cold start from table, 1=restart file)
  GW_RESTART = 0
 !Groundwater/baseflow mask specified on land surface model grid...(Only required if baseflow bucket model is active)
- gwbasmskfil = ""
+ gwbasmskfil = "./DOMAIN/gw_basns_geogrid.txt"
 /
