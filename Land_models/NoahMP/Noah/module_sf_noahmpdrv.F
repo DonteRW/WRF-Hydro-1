@@ -1099,10 +1099,20 @@ end if
              qsnowxy    (I,J) = 0.0
              wslakexy   (I,J) = 0.0
 
-             if(iopt_run.ne.5) then 
-                   waxy       (I,J) = 4900.                                       !???
-                   wtxy       (I,J) = waxy(i,j)                                   !???
-                   zwtxy      (I,J) = (25. + 2.0) - waxy(i,j)/1000/0.2            !???
+             if(iopt_run.ne.5) then
+				if(iopt_run .eq. 1) then
+					waxy       (I,J) = DZS(1)
+					do NS=1,NSOIL
+						waxy       (I,J) = waxy       (I,J) + DZS(NS)
+					end do
+                    wtxy       (I,J) = waxy(i,j)                                   !???
+                    zwtxy      (I,J) = (25. + 2.0) - waxy(i,j)/1000/0.2            !???
+				else
+					waxy       (I,J) = 4900.                                       !???
+                    wtxy       (I,J) = waxy(i,j)                                   !???
+                    zwtxy      (I,J) = (25. + 2.0) - waxy(i,j)/1000/0.2            !???
+				endif
+                   
              else
                    waxy       (I,J) = 0.
                    wtxy       (I,J) = 0.
